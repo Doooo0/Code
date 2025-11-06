@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Bank Statement OCR",
+  "description": "An AI-powered tool to upload a bank statement (image or PDF) and extract all transactions into a clean, copyable CSV format using Gemini.",
+  "requestFramePermissions": []
+}
