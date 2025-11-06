@@ -11,17 +11,17 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const handleFileSelect = (file: File | null) => {
-    setSelectedFile(file);
+  const handleFileSelect = (files: File[]) => {
+    setSelectedFiles(files);
     setTransactions([]);
     setError(null);
   };
 
   const handleProcessStatement = useCallback(async () => {
-    if (!selectedFile) {
-      setError('Please select a file first.');
+    if (selectedFiles.length === 0) {
+      setError('Please select at least one file.');
       return;
     }
 
@@ -30,8 +30,15 @@ const App: React.FC = () => {
     setTransactions([]);
 
     try {
-      const parts = await fileToGenerativePart(selectedFile);
-      const result = await analyzeStatement(parts);
+      const allPartsPromises = selectedFiles.map(file => fileToGenerativePart(file));
+      const partsArrays = await Promise.all(allPartsPromises);
+      const combinedParts = partsArrays.flat();
+
+      if (combinedParts.length === 0) {
+        throw new Error("Could not extract any processable content from the uploaded files.");
+      }
+
+      const result = await analyzeStatement(combinedParts);
       
       // Clean the response from markdown and parse
       let jsonString = result.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -54,7 +61,7 @@ const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedFile]);
+  }, [selectedFiles]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col items-center p-4 sm:p-6 md:p-8">
@@ -62,18 +69,18 @@ const App: React.FC = () => {
         <header className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-bold text-primary-700">Bank Statement OCR</h1>
           <p className="mt-2 text-lg text-gray-600">
-            Upload a bank statement (PDF/Image) to extract transactions using Gemini.
+            Upload bank statements (PDF/Image) to extract transactions using Gemini.
           </p>
         </header>
 
         <main className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="flex flex-col space-y-4">
-              <h2 className="text-2xl font-semibold text-gray-700">1. Upload Statement</h2>
+              <h2 className="text-2xl font-semibold text-gray-700">1. Upload Statements</h2>
               <FileUpload onFileSelect={handleFileSelect} isProcessing={isProcessing} />
                <button
                 onClick={handleProcessStatement}
-                disabled={!selectedFile || isProcessing}
+                disabled={selectedFiles.length === 0 || isProcessing}
                 className="w-full flex justify-center items-center gap-2 bg-primary-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
               >
                 {isProcessing ? (
@@ -87,7 +94,7 @@ const App: React.FC = () => {
                 ) : (
                    <>
                     <UploadIcon />
-                    Analyze Statement
+                    Analyze Statements
                    </>
                 )}
               </button>
